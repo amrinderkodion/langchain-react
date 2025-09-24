@@ -57,6 +57,11 @@ cd langchain-react
 ```bash
 npm install
 ```
+or If some problem occurs
+```bash
+npm cache clean --force
+npm install --legacy-peer-deps
+```
 
 ### 3. Environment Setup
 Create a `.env` file in the root directory:
