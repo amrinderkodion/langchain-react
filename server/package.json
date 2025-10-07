@@ -1,0 +1,27 @@
+{
+  "name": "rag-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "pinecone-rag-server.js",
+  "scripts": {
+    "start": "node pinecone-rag-server.js",
+    "populate": "node populate-index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@langchain/core": "^0.3.77",
+    "@langchain/google-genai": "^0.2.18",
+    "@llamaindex/cloud": "^0.2.3",
+    "@llamaindex/google": "^0.3.22",
+    "@llamaindex/pinecone": "^0.1.22",
+    "@pinecone-database/pinecone": "^6.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "langchain": "^0.3.34",
+    "llamaindex": "^0.12.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
+

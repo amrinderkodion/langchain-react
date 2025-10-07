@@ -7,7 +7,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 export default defineConfig({
   plugins: [tailwindcss(), react(),nodePolyfills(),],
   optimizeDeps: {
-    exclude: ['chromadb', 'llamaindex', '@llamaindex/google', '@llamaindex/pinecone']
+    exclude: ['llamaindex', '@llamaindex/google', '@llamaindex/pinecone']
   },
 
 })

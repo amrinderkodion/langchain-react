@@ -1,0 +1,5 @@
+LangChain.js is a powerful framework for building applications powered by large language models (LLMs) and other AI agents. It simplifies the process of connecting LLMs to external data sources.
+
+Pinecone is a specialized vector database designed to store and query high-dimensional vectors. It is essential for implementing Retrieval-Augmented Generation (RAG) by allowing for fast similarity searches.
+
+Google's Gemini models, such as Gemini 2.5 Flash, are a family of multimodal large language models developed by Google AI. They are known for their efficiency and speed.

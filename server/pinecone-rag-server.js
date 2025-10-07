@@ -1,12 +1,16 @@
 // server/pinecone-rag-server.js
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from 'dotenv';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { GoogleGenerativeAIEmbeddings } from '@langchain/google-genai';
 import { ChatGoogleGenerativeAI } from '@langchain/google-genai';
 import { PineconeVectorStore } from '@llamaindex/pinecone';
-import { VectorStoreIndex, storageContextFromDefaults, Settings } from 'llamaindex';
+import { VectorStoreIndex, storageContextFromDefaults, Settings, Document } from 'llamaindex';
 import { GeminiEmbedding, Gemini } from '@llamaindex/google';
 
 config();
@@ -49,6 +53,20 @@ Settings.llm = new Gemini({
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// Ensure uploads directory exists under server project (Windows-safe)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (e) {
+  console.error('Failed to ensure uploads directory:', e);
+}
+
+const upload = multer({ dest: uploadsDir });
 
 class RAGService {
   constructor() {
@@ -308,6 +326,70 @@ app.post('/api/chat', async (req, res) => {
   } catch (error) {
     console.error('Chat error:', error);
     res.status(500).json({ error: 'Chat failed', details: error.message });
+  }
+});
+
+// Upload endpoint: accepts text/markdown/PDF, ingests into vector index
+app.post('/api/upload', upload.array('files', 10), async (req, res) => {
+  try {
+    const files = req.files || [];
+    if (files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const ingested = [];
+    for (const file of files) {
+      const originalName = file.originalname;
+      const ext = path.extname(originalName).toLowerCase();
+
+      let textContent = '';
+      if (ext === '.txt' || ext === '.md' || ext === '.markdown') {
+        textContent = fs.readFileSync(file.path, 'utf8');
+      } else {
+        // Fallback: attempt to read as UTF-8 text. In real apps, add PDF/Doc parsers.
+        try {
+          textContent = fs.readFileSync(file.path, 'utf8');
+        } catch {
+          // skip non-text for now
+          continue;
+        }
+      }
+
+      if (!textContent || textContent.trim().length === 0) continue;
+
+      // Prefer inserting via LlamaIndex so retriever sees new docs immediately
+      try {
+        const doc = new Document({ text: textContent, metadata: { filename: originalName, uploadedAt: new Date().toISOString() } });
+        await ragService.vectorIndex.insert(doc);
+      } catch (e) {
+        // If LlamaIndex insert fails, upsert directly into Pinecone
+        try {
+          const embedding = await ragService.embeddings.embedQuery(textContent);
+          const index = ragService.pinecone.index(ragService.indexName);
+          await index.upsert([
+            {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2)}-${originalName}`,
+              values: embedding,
+              metadata: { filename: originalName, type: 'upload', length: textContent.length },
+            },
+          ]);
+        } catch (e2) {
+          console.error('Failed to upsert directly to Pinecone:', e2);
+          throw e;
+        }
+      }
+
+      ingested.push({ name: originalName, bytes: file.size });
+    }
+
+    if (ingested.length === 0) {
+      return res.status(400).json({ error: 'No supported files ingested' });
+    }
+
+    res.json({ status: 'ok', ingested });
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Upload failed', details: error.message });
   }
 });
 
